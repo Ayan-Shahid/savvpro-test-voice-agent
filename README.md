@@ -53,17 +53,33 @@ scripts/secrets.sh  SOPS + age secrets workflow
 tools/e2e/        Playwright browser checks (full booking call, cross-tab user isolation)
 ```
 
-## Quick start (Docker, development)
+## Run it on your own machine
 
-Requirements: Docker with Compose v2 (Docker Desktop, or Colima on macOS), about 4 GB free RAM.
+### Prerequisites
+
+| | macOS | Linux | Windows |
+|---|---|---|---|
+| Docker + Compose v2 | Docker Desktop, or `brew install colima docker docker-compose` then `colima start --cpu 4 --memory 8` | Docker Engine + compose plugin | Docker Desktop with WSL2; run every command inside the WSL2 shell |
+| Also needed | `git`, `openssl` (preinstalled) | `git`, `openssl` | same, inside WSL2 |
+
+About 6 GB of free RAM and 10 GB of disk. The first build downloads images and builds the API and web images
+(roughly 5–15 minutes depending on the machine); later starts take seconds.
+
+### Quick start (Docker, development)
 
 ```bash
+git clone https://github.com/Ayan-Shahid/savvpro-test-voice-agent.git
+cd savvpro-test-voice-agent && git switch candidate-Ayan-Shahid
 cp .env.example .env                     # non-secret settings (origin, optional Google client id)
 scripts/secrets.sh local                 # random development secrets in secrets/runtime/ (git-ignored)
-# optional, for voice: put a Deepgram API key in secrets/runtime/deepgram_api_key
+# optional, for voice: printf '%s' 'YOUR_DEEPGRAM_KEY' > secrets/runtime/deepgram_api_key
 docker compose -f compose.yaml -f compose.dev.yaml up --build -d
 docker compose -f compose.yaml -f compose.dev.yaml --profile seed run --rm seed
+curl -s http://localhost:8080/api/health/ready     # {"status":"ok", ...} when everything is up
 ```
+
+Stop with `docker compose -f compose.yaml -f compose.dev.yaml down`; add `-v` to wipe the database and start
+fresh (then run the seed again).
 
 Then open:
 
@@ -119,20 +135,45 @@ redirect after sign-in goes through the same allow-list as every other redirect.
 | Microphone does nothing | Browsers allow the mic only on `https://` or `http://localhost`; check the site permission |
 | `scripts/secrets.sh` can't decrypt on macOS | `export SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/keys.txt` (sops looks in `~/Library` otherwise) |
 
-## Running without Docker
+## Running the app processes manually (without containers for the app)
+
+Useful for debugging or hot-reloading outside Docker. Postgres, GoTrue, Redis, Mailpit and Caddy still run in
+containers (they are infrastructure); the API, worker and web app run directly on your machine.
+Requires [uv](https://docs.astral.sh/uv/) and Node.js 22.12+.
 
 ```bash
-# backend (uv + Python 3.14)
-cd backend && uv sync --extra sky
-export ASTRO_DB_HOST=localhost ASTRO_DB_NAME=astrovoice ASTRO_JWT_SECRET=... ASTRO_REDIS_URL=redis://localhost:6379/0
-uv run alembic upgrade head && uv run python -m astro_seed
-uv run uvicorn astro_api.main:app --factory --reload
-# frontend (Node 22.12+; the images use Node 26)
-cd frontend && npm ci && PUBLIC_ORIGIN=http://localhost:8080 INTERNAL_ORIGIN=http://localhost:8080 npm run dev
+# 1. Infrastructure only (database, auth, cache, mail); Caddy is replaced by the Next dev server's port below
+scripts/secrets.sh local && cp -n .env.example .env
+docker compose -f compose.yaml -f compose.dev.yaml up -d postgres gotrue redis mailpit db-bootstrap
+docker compose -f compose.yaml -f compose.dev.yaml up -d --no-deps caddy   # serves /auth/v1, proxies the rest to your host
+
+# 2. Backend (Python 3.14 via uv)
+cd backend
+uv sync --extra sky
+export ASTRO_ENV=development ASTRO_DB_HOST=localhost ASTRO_DB_PORT=5432 ASTRO_DB_NAME=astrovoice \
+       ASTRO_DB_OWNER_PASSWORD="$(cat ../secrets/runtime/db_owner_password)" \
+       ASTRO_DB_API_PASSWORD="$(cat ../secrets/runtime/db_api_password)" \
+       ASTRO_DB_WORKER_PASSWORD="$(cat ../secrets/runtime/db_worker_password)" \
+       ASTRO_JWT_SECRET="$(cat ../secrets/runtime/jwt_secret)" ASTRO_JWT_ISSUER=http://localhost:8080/auth/v1 \
+       ASTRO_GOTRUE_URL=http://localhost:8080/auth/v1 ASTRO_PUBLIC_ORIGIN=http://localhost:8080 \
+       ASTRO_REDIS_URL=redis://astro-api@localhost:6379/0 \
+       ASTRO_REDIS_PASSWORD="$(cat ../secrets/runtime/redis_api_password)"
+uv run alembic upgrade head
+docker compose -f ../compose.yaml -f ../compose.dev.yaml --profile seed run --rm --no-deps seed   # demo users via GoTrue's admin API
+uv run uvicorn astro_api.main:app --factory --reload --port 8000 &
+# worker (another terminal, same exports but the worker's DB/Redis credentials):
+#   ASTRO_REDIS_URL=redis://astro-worker@localhost:6379/1 ASTRO_REDIS_PASSWORD_SECRET=redis_worker_password \
+#   uv run celery -A astro_worker.tasks worker -B --loglevel INFO
+
+# 3. Frontend
+cd ../frontend && npm ci
+PUBLIC_ORIGIN=http://localhost:8080 INTERNAL_ORIGIN=http://localhost:8080 npm run dev
 ```
 
-You also need Postgres, GoTrue and Caddy in front (see `infra/caddy/Caddyfile`), which is why Docker is the
-recommended path.
+In this mode Caddy must forward `/api`, `/ws` and pages to your host instead of to containers: edit
+`infra/caddy/Caddyfile` so `api:8000` and `web:3000` read `host.docker.internal:8000` and
+`host.docker.internal:3000` (Docker Desktop and Colima both provide that name). The Docker quick start above
+is the supported path; this one is for working on the code.
 
 ## Tests
 
