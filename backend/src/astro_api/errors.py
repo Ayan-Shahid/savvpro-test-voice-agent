@@ -50,9 +50,7 @@ def from_db(err: DBAPIError) -> ApiError | None:
     return None
 
 
-def _body(
-    request: Request, status: int, code: str, message: str, extra: dict[str, Any] | None = None
-) -> JSONResponse:
+def _body(request: Request, status: int, code: str, message: str, extra: dict[str, Any] | None = None) -> JSONResponse:
     rid = getattr(request.state, "request_id", None)
     payload: dict[str, Any] = {"code": code, "message": message, "request_id": rid, **(extra or {})}
     headers = {"Retry-After": str(extra["retry_after"])} if extra and "retry_after" in extra else None
