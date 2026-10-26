@@ -35,8 +35,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: astral-sh/setup-uv@v7
         with: { version: "0.11.32", enable-cache: true }
-      - run: uv python install 3.14.9
-      - run: uv sync --extra sky --frozen
+      - run: uv python install 3.14   # newest 3.14.x that uv can download
+      - run: uv sync --extra sky --frozen --python 3.14
       - run: uv run ruff check src tests migrations
       - run: uv run ruff format --check src tests migrations
       - run: uv run mypy

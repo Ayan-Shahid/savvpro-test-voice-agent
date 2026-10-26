@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.12
 # Targets: dev (reload, dev deps), test (CI), prod (slim, non-root). One image serves api, worker, beat, seed.
-ARG PYTHON=3.14.9
+ARG PYTHON=3.14
 FROM python:${PYTHON}-slim-trixie AS base
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
