@@ -9,17 +9,15 @@ cd "$(dirname "$0")/.."
 NAMES=(db_superuser_password db_auth_password db_owner_password db_api_password db_worker_password
        redis_api_password redis_worker_password jwt_secret seed_demo_password)
 OPTIONAL=(deepgram_api_key smtp_password cloudflared_token google_client_secret)
-rand() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "${1:-40}"; }
+rand() { openssl rand -base64 48 | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c "${1:-40}"; }
 
 case "${1:-}" in
   init)
     env="${2:?env}"; out="secrets/${env}.enc.yaml"
     [[ -e "$out" ]] && { echo "$out exists; use edit"; exit 1; }
-    tmp=$(mktemp); trap 'shred -u "$tmp" 2>/dev/null || rm -f "$tmp"' EXIT
+    tmp=$(mktemp); trap 'rm -P "$tmp" 2>/dev/null || shred -u "$tmp" 2>/dev/null || rm -f "$tmp"' EXIT
     { for n in "${NAMES[@]}"; do echo "$n: $(rand 40)"; done
-      echo "jwt_secret_note: rotate by changing jwt_secret; every session ends"
       for n in "${OPTIONAL[@]}"; do echo "$n: \"\""; done; } > "$tmp"
-    sed -i '/^jwt_secret_note/d' "$tmp"
     sops --encrypt --filename-override "$out" --input-type yaml --output-type yaml "$tmp" > "$out"
     echo "wrote $out — now add deepgram_api_key, smtp_password and cloudflared_token with: $0 edit $env" ;;
   edit)

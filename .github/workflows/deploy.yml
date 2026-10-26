@@ -58,4 +58,4 @@ jobs:
             curl -fsS "$PUBLIC_ORIGIN/api/health/ready" && exit 0; sleep 5; done; exit 1
       - name: Wipe rendered secrets
         if: always()
-        run: find secrets/runtime -type f -exec shred -u {} + 2>/dev/null || rm -rf secrets/runtime
+        run: find secrets/runtime -type f -exec rm -P {} + 2>/dev/null || rm -rf secrets/runtime   # rm -P overwrites on macOS

@@ -7,7 +7,7 @@ creation_rules:
       age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs
   - path_regex: secrets/staging\.enc\.yaml$
     age: >-
-      age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs,
+      age1zqzxd8wk9f6tkl6cgscdds9cs20zh8ca8dzqym9r7cmrme4u8apqwvz4lu,
       age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs
   - path_regex: secrets/production\.enc\.yaml$
     age: >-
