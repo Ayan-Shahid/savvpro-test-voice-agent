@@ -166,7 +166,7 @@ Postgres 18 owns the truth. Integrity rules live in the database, not just the a
 
 ## 5. Security
 
-- **Auth:** GoTrue (open sign-up, email confirmation, 10-character minimum, refresh-token rotation, 15-minute
+- **Auth:** GoTrue (open sign-up or Google sign-in via OAuth 2.0 + PKCE, email confirmation, 10-character minimum, refresh-token rotation, 15-minute
   access tokens, MFA available, anonymous sign-ins off). PKCE and token-hash email links verified server-side.
   The API verifies JWT signature, audience, issuer and expiry and keeps only an allow-list of claims.
 - **Redirect allow-list:** every `next=` goes through `safeNext()` (same-origin paths under `/app` only;
@@ -189,7 +189,17 @@ Postgres 18 owns the truth. Integrity rules live in the database, not just the a
 - **Privacy:** fake people only (`@astro.example`), audio never stored, transcripts optional and purged at
   30 days, Deepgram Model Improvement Program opt-out on.
 
-## 6. Frontend
+## 6. Performance and cache stampedes
+
+The only expensive cache is each API process's copy of the sky grids and weather (~2 MB per data version).
+Rebuilds are **single-flight** (one coroutine rebuilds, concurrent turns wait and reuse it), turns that
+already hold an older version **keep serving it while a rebuild runs**, and the data-version probe is cached
+for 5 s so a burst of turns costs one query (a test fires 20 concurrent turns at a cold cache and asserts one
+rebuild). Schedules are never cached — they are read fresh each turn and the exclusion constraints are the
+final arbiter — so there is nothing to expire all at once. In the browser, components asking for the same
+resource at the same time share one request. The brain itself answers a turn in well under a millisecond.
+
+## 7. Frontend
 
 Next.js 16 (App Router, `proxy.ts`), React 19, Tailwind 4, Motion, react-three-fiber. A GLSL galaxy shader
 sits behind glass panels. The landing page's procedural **armillary sphere** travels across the page as you
@@ -201,7 +211,7 @@ effects, undo stack, latency, any past turn). Error pages exist for 400/401/402/
 static 502/503/504 pages served by Caddy when an upstream is down). Settings cover profile, voice, display,
 notifications/privacy, sessions (revoke one or all) and account deletion.
 
-## 7. Deviations from the original plan (and why)
+## 8. Deviations from the original plan (and why)
 
 - **spaCy and text2num dropped** for our own lexicon matcher and number-word converter: smaller, faster,
   explicit and testable; text2num rewrote ordinals we need ("the second one").

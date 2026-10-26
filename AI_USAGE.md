@@ -46,6 +46,17 @@ running system calls no language model.
 | The galaxy canvas was invisible behind the body background | Screenshot review | Background moved to `<html>` |
 | A guessed Deepgram voice name (`flux-luna-en`) | Checking the docs before use | Verified `flux-haley-en` from the Flux TTS quickstart |
 
+**Found while running it on real machines (after the sandbox build):**
+
+| Problem | How it surfaced | Fix |
+|---|---|---|
+| Redis exited: with every Linux capability dropped, root could not write the redis-owned data volume | First `docker compose up` on macOS (Colima) | Start through the official entrypoint, which drops to the `redis` user |
+| `next dev` could not create `.next/` (app dir owned by root in the dev image) | Same run | Dev image gives `/app` to the runtime user |
+| Dev overlay moved Caddy to port 8080 inside the network, so the web server's own calls to GoTrue failed (sign-in loop, "link expired") | Signing in locally | Caddy always listens on :80 inside; only the host port differs |
+| Removing a deprecated GoTrue variable left new users with an empty `role` claim, so the API answered 403 | Signing in locally | Restored `GOTRUE_JWT_DEFAULT_GROUP_NAME`; verified against the GoTrue binary |
+| `secrets.sh` used GNU `sed -i`; sops on macOS looks for keys under `~/Library` | Running the secrets workflow on a Mac | Portable script; `SOPS_AGE_KEY_FILE` documented |
+| CI pinned Python 3.14.9, which uv cannot download yet | First CI run | Install the newest 3.14.x |
+
 Smaller slips — lint and type errors, a test expecting 24 catalogue targets when there are 23, and wrong
 assertions about which night is clear — were caught by the test suite or the linters on the next run.
 

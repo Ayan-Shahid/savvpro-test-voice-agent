@@ -8,6 +8,27 @@ No language model makes any decision. Deepgram is used only as ears (Flux STT) a
 - **Use case and how the brain decides:** [DESIGN.md](DESIGN.md)
 - **How AI tools were used:** [AI_USAGE.md](AI_USAGE.md)
 
+## For reviewers: try it live
+
+**Live demo: https://astro.ayandev.app**
+
+1. Create an account with your email (a confirmation link arrives from `bookings@ayandev.app`), use
+   **Continue with Google**, or sign in with the demo account `demo@astro.example` (password in the pull
+   request description, so no password is committed here).
+2. Open **Call** and choose **Start voice call** (allow the microphone; Chrome, Edge, Safari and Firefox work)
+   or **Start text call** to type instead. The **Brain Inspector** beside the call shows every decision.
+3. Your bookings appear under **Bookings**; preferences (voice, speed, 12/24 h, reduced motion, transcripts,
+   sessions, account deletion) under **Settings**.
+
+Good to know:
+
+- **All times are observatory time (UTC+5)**, whatever your own time zone. "Tonight" means the observing night
+  that starts this evening at the site; "1 AM" on a night belongs to that night.
+- The demo world is planted **relative to the day it was deployed** (day A): A+1 is a cirrus night (optical
+  telescopes blocked, the radio dish fine), A+5 is wet (everything blocked), other nights are mostly clear,
+  the reflector is already booked tonight 11 PM–1 AM, and the refractor is in maintenance on A+6.
+- Health check: https://astro.ayandev.app/api/health/ready (reports whether voice is on).
+
 | | |
 |---|---|
 | ![Landing](docs/screenshots/landing.png) | ![Call with Brain Inspector](docs/screenshots/e2e-call-booked.png) |
@@ -37,6 +58,7 @@ tools/e2e/        Playwright browser checks (full booking call, cross-tab user i
 Requirements: Docker with Compose v2 (Docker Desktop, or Colima on macOS), about 4 GB free RAM.
 
 ```bash
+cp .env.example .env                     # non-secret settings (origin, optional Google client id)
 scripts/secrets.sh local                 # random development secrets in secrets/runtime/ (git-ignored)
 # optional, for voice: put a Deepgram API key in secrets/runtime/deepgram_api_key
 docker compose -f compose.yaml -f compose.dev.yaml up --build -d
@@ -59,12 +81,18 @@ Without a Deepgram key everything works in **text mode**: start a "text call" an
 
 ### Things to try on a call
 
-- "Book the refractor for Saturn on Wednesday from 8 to 10 PM" → "Actually make it the reflector instead"
-  → "Undo that" → "Yes" (mid-call change, undo, confirm)
-- "Book the reflector for Jupiter tonight at 9 PM" (below the horizon: the brain offers the real window)
-- "What's the weather like tomorrow night?" (seeded cirrus night)
-- "Book the refractor for the Orion Nebula tomorrow from 11 PM to 1 AM" (Moon glare; dish offered)
-- "Cancel my booking on Thursday" (the demo account has a seeded dish booking)
+Night names are relative to the seed day A (see above); pick the weekday that is two days ahead for "A+2".
+
+- "Book the refractor for Saturn on *[A+2 weekday]* from 8 to 10 PM" → "Actually make it the reflector
+  instead" → "Undo that" → "Yes" (mid-call change, undo with hold release, confirm)
+- "Book the refractor for Jupiter tonight at 9 PM" (below the horizon: the brain offers the real window)
+- "What's the weather like tomorrow night?" (the seeded cirrus night)
+- "Book the reflector for the Andromeda Galaxy tomorrow from 9 to 11 PM" (cirrus: the dish is offered instead)
+- "Book the reflector for Saturn tonight from 11 PM to 1 AM" (already taken: other telescopes, other times, waitlist)
+- "Book the reflector for the Orion Nebula on *[A+2 weekday]* at 11 PM" (near full Moon in late October: glare)
+- "Book Saturn, no wait, Jupiter…", "the refactor", "make it an hour later", "go back to Saturn", or say
+  nothing for a while (self-repair, near-miss clarification, relative edits, named undo, silence handling)
+- As the demo account: "Cancel my booking" (it has a seeded radio-dish booking on A+3)
 
 ## Google sign-in (optional)
 
@@ -80,6 +108,16 @@ Without a Deepgram key everything works in **text mode**: start a "text call" an
 
 The flow is OAuth 2.0 with PKCE through GoTrue; the code is exchanged server-side at `/auth/callback`, and the
 redirect after sign-in goes through the same allow-list as every other redirect.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `/api/health/ready` says `"speech":"text-only"` | No Deepgram key: put it in `secrets/runtime/deepgram_api_key` and recreate `api` |
+| Sign-in returns to the sign-in page | The web container can't reach GoTrue through `http://caddy:80`; check `docker compose logs caddy gotrue` |
+| Confirmation link says "expired" | Links work once and last an hour; request a new one (dev emails are in Mailpit) |
+| Microphone does nothing | Browsers allow the mic only on `https://` or `http://localhost`; check the site permission |
+| `scripts/secrets.sh` can't decrypt on macOS | `export SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/keys.txt` (sops looks in `~/Library` otherwise) |
 
 ## Running without Docker
 
@@ -102,7 +140,7 @@ recommended path.
 cd backend
 uv run pytest tests/brain                       # the brain: 48 scripted calls + property + determinism tests
 ASTRO_TEST_PG=postgresql://postgres@localhost:5432/postgres \
-ASTRO_TEST_REDIS=redis://localhost:6379/5 uv run pytest   # + migrations, RLS, API, WebSocket (177 tests)
+ASTRO_TEST_REDIS=redis://localhost:6379/5 uv run pytest   # + migrations, RLS, API, WebSocket, worker (179 tests)
 uv run ruff check src tests migrations && uv run mypy
 
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
@@ -118,7 +156,7 @@ worker and an admin to prove what each can read and change.
 | | Images | Email | Ingress | Seed |
 |---|---|---|---|---|
 | development (`compose.dev.yaml`) | `dev` targets, hot reload | Mailpit | `localhost:8080` | full demo |
-| staging (`compose.staging.yaml`) | `prod` targets | Resend SMTP relay on ayandev.app | Cloudflare tunnel | full demo, re-planted |
+| staging (`compose.staging.yaml`) | `prod` targets | Resend SMTP relay on ayandev.app | Cloudflare tunnel | full demo, re-planted on every deploy (A = deploy day) |
 | production (`compose.prod.yaml`) | `prod` targets, read-only, resource limits | Resend SMTP relay | Cloudflare tunnel | catalogue only |
 | CI (`compose.ci.yaml`) | `test` target | — | — | per test |
 
