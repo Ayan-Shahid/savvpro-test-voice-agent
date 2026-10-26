@@ -56,6 +56,5 @@ jobs:
         run: |
           for i in $(seq 1 30); do
             curl -fsS "$PUBLIC_ORIGIN/api/health/ready" && exit 0; sleep 5; done; exit 1
-      - name: Wipe rendered secrets
-        if: always()
-        run: find secrets/runtime -type f -exec rm -P {} + 2>/dev/null || rm -rf secrets/runtime   # rm -P overwrites on macOS
+      # Rendered secrets stay in secrets/runtime/ (0700 dir, 0600 files, git-ignored) on the deploy host:
+      # Docker secrets are bind mounts, so deleting them would break every container restart and reboot.

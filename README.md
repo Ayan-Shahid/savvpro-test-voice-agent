@@ -219,5 +219,6 @@ scripts/secrets.sh edit staging    # add deepgram_api_key, smtp_password (Resend
 `.github/workflows/deploy.yml` runs on a self-hosted runner (a Mac under Colima) only for pushes to `main`
 in the repository named by the `DEPLOY_OWNER` variable, so forks and pull requests can never reach it. It
 renders secrets, builds images, runs migrations, rolls out with health checks, smoke-tests
-`/api/health/ready` and wipes the rendered secrets. The public hostname (`astro.ayandev.app`) comes in
+`/api/health/ready`. Rendered secrets stay in `secrets/runtime/` (0700, git-ignored) on the host, because
+Docker secrets are bind mounts that restarts need. The public hostname (`astro.ayandev.app`) comes in
 through a Cloudflare tunnel, so the host opens no inbound ports.
