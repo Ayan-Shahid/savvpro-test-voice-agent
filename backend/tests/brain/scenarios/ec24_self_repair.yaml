@@ -1,0 +1,5 @@
+id: EC-24
+title: Self-repair in one breath
+turns:
+  - say: Book Saturn, no wait, Jupiter, on the refractor tonight
+    expect: {draft: {target: jupiter, telescope: OPT-25}, stack_depth: 1}

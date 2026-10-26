@@ -1,0 +1,9 @@
+id: EC-28
+title: Mid-call mutation (brief scenario 3)
+turns:
+  - say: I'd like the refractor on Friday for Saturn
+    expect: {state: COLLECTING, pending: slot, reply_contains: ["6:15 PM to 2:30 AM"]}
+  - say: Actually, switch the target to the Orion Nebula and make it the Reflector instead
+    expect: {draft: {target: m42, telescope: DSR-100, night: "2026-10-30"}, reply_contains: ["still Friday", "11 PM to 4:45 AM"], stack_depth: 2}
+  - say: Reflector from 11 to 1
+    expect: {state: CONFIRMING, reply_contains: ["73% lit"]}

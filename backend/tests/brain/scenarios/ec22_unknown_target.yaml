@@ -1,0 +1,5 @@
+id: EC-22
+title: Unknown target
+turns:
+  - say: Book Planet Nine
+    expect: {reply_contains: ["catalogue"], pending: slot, draft: {target: null}}

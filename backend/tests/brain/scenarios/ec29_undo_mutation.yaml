@@ -1,0 +1,9 @@
+id: EC-29
+title: Undo restores the previous configuration and releases the hold
+turns:
+  - say: I'd like the refractor on Friday for Saturn from 9 to 10 PM
+    expect: {state: CONFIRMING, effects: [hold]}
+  - say: Actually, switch the target to the Orion Nebula and make it the Reflector instead
+    expect: {state: PROPOSING}
+  - say: Undo that
+    expect: {intent: UNDO, draft: {target: saturn, telescope: OPT-25}, state: CONFIRMING, reply_contains: ["Back to Saturn"]}

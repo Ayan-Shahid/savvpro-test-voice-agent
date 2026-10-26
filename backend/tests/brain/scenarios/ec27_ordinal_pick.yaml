@@ -1,0 +1,7 @@
+id: EC-27
+title: Pick from offered options
+turns:
+  - say: Book the refractor for Jupiter tonight at 9 PM
+    expect: {state: PROPOSING}
+  - say: The second one
+    expect: {state: CONFIRMING, draft: {night: "2026-10-29"}}

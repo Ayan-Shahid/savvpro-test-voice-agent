@@ -1,0 +1,5 @@
+id: EC-07
+title: Moon glare only warns
+turns:
+  - say: Orion Nebula on the reflector on Friday from 11 PM to 1 AM
+    expect: {state: CONFIRMING, reply_contains: ["73% lit"], effects: [hold]}

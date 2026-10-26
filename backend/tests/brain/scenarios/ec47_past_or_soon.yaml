@@ -1,0 +1,7 @@
+id: EC-47
+title: Past or too soon
+turns:
+  - say: Refractor for Saturn last night
+    expect: {reply_contains: ["already passed"]}
+  - say: Tonight from 8:15 to 9 PM
+    expect: {reply_contains: ["too soon"]}

@@ -1,0 +1,5 @@
+id: EC-30
+title: Nothing to undo
+turns:
+  - say: Go back
+    expect: {intent: UNDO, reply_contains: ["nothing to undo"], state: GREETING}

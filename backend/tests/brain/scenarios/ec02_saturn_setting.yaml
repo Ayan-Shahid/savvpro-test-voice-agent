@@ -1,0 +1,5 @@
+id: EC-02
+title: Target sets during the window
+turns:
+  - say: Saturn on the refractor tonight from 2 to 4 AM
+    expect: {state: PROPOSING, check_failed: too_low, reply_contains: ["12:45 to 2:45 AM", "2 to 2:45 AM"]}

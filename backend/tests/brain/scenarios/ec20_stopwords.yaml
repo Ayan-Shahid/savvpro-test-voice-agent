@@ -1,0 +1,8 @@
+id: EC-20
+title: Ordinary words never become targets
+turns:
+  - say: Book Saturn please
+    expect: {draft: {target: saturn}}
+  - say: Start over
+  - say: I'm serious about Jupiter
+    expect: {draft: {target: jupiter}}

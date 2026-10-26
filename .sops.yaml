@@ -1,0 +1,15 @@
+# SOPS + age. Replace the recipients with your own age public keys (`age-keygen -y ~/.config/sops/age/keys.txt`).
+# Staging and production are encrypted to the deploy host's key plus each maintainer's key; the self-hosted
+# runner holds only its own private key, outside the repository.
+creation_rules:
+  - path_regex: secrets/development\.enc\.yaml$
+    age: >-
+      age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs
+  - path_regex: secrets/staging\.enc\.yaml$
+    age: >-
+      age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs,
+      age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs
+  - path_regex: secrets/production\.enc\.yaml$
+    age: >-
+      age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs,
+      age1rmletpnrgfh73rpxuj3hf5vgpy47ymkp97kq6m92gy0ln8d5ta3sttm5cs

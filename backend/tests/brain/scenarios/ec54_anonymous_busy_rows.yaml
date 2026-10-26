@@ -1,0 +1,8 @@
+id: EC-54
+title: Others' bookings arrive without ids (anonymised by the database) and must still block
+setup:
+  busy:
+    - {telescope: OPT-25, night: "2026-10-29", start: "20:00", end: "22:00"}
+turns:
+  - say: Book the refractor for Saturn on Thursday from 8 to 10 PM
+    expect: {state: PROPOSING, check_failed: taken, reply_contains: ["already booked"]}

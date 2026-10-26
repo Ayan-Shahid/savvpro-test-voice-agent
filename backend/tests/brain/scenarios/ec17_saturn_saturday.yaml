@@ -1,0 +1,9 @@
+id: EC-17
+title: Date words that look like targets
+turns:
+  - say: Saturn on Saturday
+    expect: {draft: {target: saturn, night: "2026-10-31"}}
+  - say: Start over
+    expect: {pending: slot}
+  - say: Saturday please
+    expect: {draft: {night: "2026-10-31", target: null}, reply_contains: ["Which object"]}

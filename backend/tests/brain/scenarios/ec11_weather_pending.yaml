@@ -1,0 +1,5 @@
+id: EC-11
+title: Beyond the forecast horizon
+turns:
+  - say: Radio dish for the Andromeda Galaxy on 6 November from 9 to 10 PM
+    expect: {state: CONFIRMING, reply_contains: ["re-check the weather daily"]}

@@ -1,0 +1,254 @@
+# Base stack shared by every environment. Combine with an overlay:
+#   development: docker compose -f compose.yaml -f compose.dev.yaml up
+#   staging:     docker compose -f compose.yaml -f compose.staging.yaml up -d
+#   production:  docker compose -f compose.yaml -f compose.prod.yaml up -d
+#   CI:          docker compose -f compose.yaml -f compose.ci.yaml run --rm api-test
+# Secrets are files in ./secrets/runtime/, rendered from SOPS-encrypted secrets/<env>.enc.yaml by
+# scripts/secrets.sh. They are mounted at /run/secrets and never placed in environment variables.
+name: astrovoice
+
+x-hardened: &hardened
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+x-app-env: &app-env
+  ASTRO_ENV: ${ASTRO_ENV:-development}
+  ASTRO_PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
+  ASTRO_DB_HOST: postgres
+  ASTRO_DB_PORT: "5432"
+  ASTRO_DB_NAME: astrovoice
+  ASTRO_GOTRUE_URL: http://gotrue:9999
+  ASTRO_JWT_ISSUER: ${PUBLIC_ORIGIN:-http://localhost:8080}/auth/v1
+  ASTRO_SMTP_HOST: ${SMTP_HOST:-mailpit}
+  ASTRO_SMTP_PORT: ${SMTP_PORT:-1025}
+  ASTRO_SMTP_USER: ${SMTP_USER:-}
+  ASTRO_SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+  ASTRO_MAIL_FROM: ${MAIL_FROM:-AstroVoice <bookings@ayandev.app>}
+
+services:
+  postgres:
+    <<: *hardened
+    image: postgres:18.6-trixie
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    environment:
+      POSTGRES_DB: astrovoice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_superuser_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+    secrets: [db_superuser_password, db_auth_password, db_owner_password, db_api_password, db_worker_password]
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./infra/postgres/initdb.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
+      - ./backend/sql:/sql:ro
+      - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./infra/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d astrovoice"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [data]
+
+  # Runs once per deploy as the superuser after GoTrue has migrated `auth`: grants our roles need on auth.
+  db-bootstrap:
+    image: postgres:18.6-trixie
+    restart: "no"
+    depends_on:
+      gotrue: { condition: service_healthy }
+    environment: { PGHOST: postgres, PGUSER: postgres, PGDATABASE: astrovoice }
+    entrypoint: ["sh", "-c", "PGPASSWORD=$$(cat /run/secrets/db_superuser_password) psql -v ON_ERROR_STOP=1 -f /sql/10_bootstrap.sql"]
+    secrets: [db_superuser_password]
+    volumes: ["./backend/sql:/sql:ro"]
+    networks: [data]
+
+  migrate:
+    image: ${REGISTRY:-astrovoice}/api:${TAG:-local}
+    restart: "no"
+    depends_on:
+      db-bootstrap: { condition: service_completed_successfully }
+    environment: *app-env
+    entrypoint: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    secrets: [db_owner_password]
+    networks: [data]
+
+  gotrue:
+    <<: *hardened
+    image: supabase/gotrue:v2.197.0
+    depends_on:
+      postgres: { condition: service_healthy }
+    # GoTrue reads configuration from the environment only, so secrets are read from files at start-up.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        export GOTRUE_DB_DATABASE_URL="postgres://supabase_auth_admin:$$(cat /run/secrets/db_auth_password)@postgres:5432/astrovoice?search_path=auth&sslmode=disable"
+        GOTRUE_JWT_SECRET="$$(cat /run/secrets/jwt_secret)"
+        GOTRUE_SMTP_PASS="$$(cat /run/secrets/smtp_password 2>/dev/null || true)"
+        GOTRUE_EXTERNAL_GOOGLE_SECRET="$$(cat /run/secrets/google_client_secret 2>/dev/null || true)";
+        exec auth
+    environment:
+      API_EXTERNAL_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}/auth/v1
+      GOTRUE_API_HOST: 0.0.0.0
+      PORT: "9999"
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_NAMESPACE: auth
+      GOTRUE_SITE_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      # Redirect allow-list: GoTrue only redirects to these exact paths on our own origin.
+      GOTRUE_URI_ALLOW_LIST: ${PUBLIC_ORIGIN:-http://localhost:8080}/auth/confirm,${PUBLIC_ORIGIN:-http://localhost:8080}/auth/confirm?**,${PUBLIC_ORIGIN:-http://localhost:8080}/auth/callback?**
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      # Google sign-in (OAuth 2.0 + PKCE through GoTrue). Off unless GOOGLE_CLIENT_ID is set in .env and the
+      # client secret is in secrets/runtime/google_client_secret. Register the redirect URI below in Google.
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOOGLE_ENABLED:-false}
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${PUBLIC_ORIGIN:-http://localhost:8080}/auth/v1/callback
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: "true"
+      GOTRUE_MAILER_OTP_EXP: "3600"
+      GOTRUE_MAILER_TEMPLATES_CONFIRMATION: http://web:3000/email/confirmation.html
+      GOTRUE_MAILER_TEMPLATES_RECOVERY: http://web:3000/email/recovery.html
+      GOTRUE_MAILER_TEMPLATES_EMAIL_CHANGE: http://web:3000/email/email_change.html
+      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: Confirm your AstroVoice account
+      GOTRUE_MAILER_SUBJECTS_RECOVERY: Reset your AstroVoice password
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-mailpit}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-1025}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${MAIL_FROM_ADDRESS:-bookings@ayandev.app}
+      GOTRUE_SMTP_SENDER_NAME: AstroVoice
+      GOTRUE_JWT_AUD: authenticated
+      # Deprecation warning aside, this is what puts role=authenticated on new users (and in their tokens).
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_EXP: "900"
+      GOTRUE_JWT_ISSUER: ${PUBLIC_ORIGIN:-http://localhost:8080}/auth/v1
+      GOTRUE_PASSWORD_MIN_LENGTH: "10"
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: "10"
+      GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_REAUTHENTICATION: "false"
+      GOTRUE_SESSIONS_TIMEBOX: "720h"
+      GOTRUE_SESSIONS_INACTIVITY_TIMEOUT: "168h"
+      GOTRUE_RATE_LIMIT_HEADER: X-Real-IP
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: "30"
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: "150"
+      GOTRUE_RATE_LIMIT_VERIFY: "30"
+      GOTRUE_MFA_TOTP_ENROLL_ENABLED: "true"
+      GOTRUE_MFA_TOTP_VERIFY_ENABLED: "true"
+      GOTRUE_LOG_LEVEL: info
+    secrets: [db_auth_password, jwt_secret, smtp_password, google_client_secret]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9999/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [data, edge]
+
+  redis:
+    <<: *hardened
+    image: redis:8.10.2-alpine
+    # start.sh renders the ACL as root, then the image entrypoint chowns /data and drops to the `redis`
+    # user (root with every capability dropped cannot write the redis-owned volume).
+    cap_add: [SETGID, SETUID, CHOWN, FOWNER, DAC_OVERRIDE]
+    entrypoint: ["/bin/sh", "/usr/local/etc/redis/start.sh"]
+    secrets: [redis_api_password, redis_worker_password]
+    volumes:
+      - redisdata:/data
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./infra/redis/start.sh:/usr/local/etc/redis/start.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --user astro-api --pass \"$$(cat /run/secrets/redis_api_password)\" --no-auth-warning ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [data]
+
+  api:
+    <<: *hardened
+    image: ${REGISTRY:-astrovoice}/api:${TAG:-local}
+    build: { context: ./backend, target: prod }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *app-env
+      ASTRO_REDIS_URL: redis://astro-api@redis:6379/0
+    secrets: [db_api_password, redis_api_password, jwt_secret, deepgram_api_key]
+    networks: [data, edge]
+
+  worker:
+    <<: *hardened
+    image: ${REGISTRY:-astrovoice}/api:${TAG:-local}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    command: ["celery", "-A", "astro_worker.tasks", "worker", "-Q", "email,waitlist,maintenance,pdf,export", "--concurrency", "2", "--loglevel", "INFO"]
+    environment:
+      <<: *app-env
+      ASTRO_REDIS_URL: redis://astro-worker@redis:6379/1
+      ASTRO_REDIS_PASSWORD_SECRET: redis_worker_password
+    secrets: [db_worker_password, redis_worker_password, smtp_password]
+    networks: [data, edge]   # edge: outbound SMTP
+
+  beat:
+    <<: *hardened
+    image: ${REGISTRY:-astrovoice}/api:${TAG:-local}
+    depends_on:
+      redis: { condition: service_healthy }
+    command: ["celery", "-A", "astro_worker.tasks", "beat", "--loglevel", "INFO", "--schedule", "/tmp/celerybeat-schedule"]
+    environment:
+      <<: *app-env
+      ASTRO_REDIS_URL: redis://astro-worker@redis:6379/1
+      ASTRO_REDIS_PASSWORD_SECRET: redis_worker_password
+    secrets: [redis_worker_password]
+    networks: [data]
+
+  web:
+    <<: *hardened
+    image: ${REGISTRY:-astrovoice}/web:${TAG:-local}
+    build: { context: ./frontend, target: prod }
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      INTERNAL_ORIGIN: http://caddy:80
+    networks: [edge]
+
+  caddy:
+    <<: *hardened
+    image: caddy:2.11.7-alpine
+    cap_add: [NET_BIND_SERVICE]
+    depends_on: [web, api, gotrue]
+    environment: { CADDY_PORT: "80" }
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/errors:/srv/errors:ro
+      - caddydata:/data
+    networks: [edge]
+
+secrets:
+  db_superuser_password: { file: ./secrets/runtime/db_superuser_password }
+  db_auth_password: { file: ./secrets/runtime/db_auth_password }
+  db_owner_password: { file: ./secrets/runtime/db_owner_password }
+  db_api_password: { file: ./secrets/runtime/db_api_password }
+  db_worker_password: { file: ./secrets/runtime/db_worker_password }
+  redis_api_password: { file: ./secrets/runtime/redis_api_password }
+  redis_worker_password: { file: ./secrets/runtime/redis_worker_password }
+  jwt_secret: { file: ./secrets/runtime/jwt_secret }
+  deepgram_api_key: { file: ./secrets/runtime/deepgram_api_key }
+  smtp_password: { file: ./secrets/runtime/smtp_password }
+  seed_demo_password: { file: ./secrets/runtime/seed_demo_password }
+  cloudflared_token: { file: ./secrets/runtime/cloudflared_token }
+  google_client_secret: { file: ./secrets/runtime/google_client_secret }
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+
+networks:
+  data: { internal: true }   # databases have no route to the internet
+  edge: {}

@@ -1,0 +1,5 @@
+id: EC-09
+title: Cloud, target not observable by the dish
+turns:
+  - say: Refractor for the Pleiades tomorrow at 9
+    expect: {state: PROPOSING, check_failed: cloud, reply_excludes: ["Radio Dish"]}

@@ -1,0 +1,5 @@
+id: EC-06
+title: Moon glare blocks a deep-sky optical booking
+turns:
+  - say: Reflector for the Pleiades tonight, 10 to 11
+    expect: {state: PROPOSING, check_failed: moon_glare, reply_contains: ["Moon is 9"], reply_excludes: ["Radio Dish can"]}

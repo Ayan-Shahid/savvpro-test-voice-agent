@@ -1,0 +1,9 @@
+id: EC-41
+title: Slot already taken
+setup:
+  busy: [{telescope: DSR-100, night: "2026-10-27", start: "23:00", end: "01:00", id: other-1}]
+turns:
+  - say: Reflector for Saturn tonight from 11 PM to 1 AM
+    expect: {state: PROPOSING, check_failed: taken, reply_contains: ["already booked", "waitlist"]}
+  - say: Put me on the waitlist
+    expect: {intent: JOIN_WAITLIST, effects: [join_waitlist]}

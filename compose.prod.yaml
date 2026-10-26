@@ -1,0 +1,56 @@
+# Production: pinned images from the registry, read-only containers, resource limits sized for a 16 GB host,
+# Cloudflare tunnel in front (Caddy publishes no ports), catalogue-only seed.
+x-env: &env
+  ASTRO_ENV: production
+x-ro: &ro
+  read_only: true
+  tmpfs: ["/tmp:size=64m"]
+services:
+  postgres:
+    deploy: { resources: { limits: { memory: 3g, cpus: "2" } } }
+  redis:
+    <<: *ro
+    deploy: { resources: { limits: { memory: 256m } } }
+  gotrue:
+    <<: *ro
+    deploy: { resources: { limits: { memory: 256m } } }
+  migrate: { environment: *env }
+  api:
+    <<: *ro
+    environment: *env
+    deploy: { resources: { limits: { memory: 1g, cpus: "2" } } }
+  worker:
+    <<: *ro
+    environment: *env
+    deploy: { resources: { limits: { memory: 768m } } }
+  beat:
+    <<: *ro
+    environment: *env
+    deploy: { resources: { limits: { memory: 256m } } }
+  web:
+    <<: *ro
+    deploy: { resources: { limits: { memory: 768m } } }
+  caddy:
+    <<: *ro
+    deploy: { resources: { limits: { memory: 256m } } }
+  seed:
+    image: ${REGISTRY:-astrovoice}/api:${TAG:-local}
+    restart: "no"
+    profiles: [seed]
+    command: ["python", "-m", "astro_seed", "--catalogue-only", "--nights", "60"]
+    environment:
+      ASTRO_ENV: production
+      ASTRO_DB_HOST: postgres
+      ASTRO_DB_NAME: astrovoice
+    secrets: [db_owner_password]
+    networks: [data]
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.3
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    depends_on: [caddy]
+    entrypoint: ["sh", "-c", "exec cloudflared tunnel --no-autoupdate --metrics 0.0.0.0:2000 run --token \"$$(cat /run/secrets/cloudflared_token)\""]
+    secrets: [cloudflared_token]
+    networks: [edge]

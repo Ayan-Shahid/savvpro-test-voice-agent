@@ -1,0 +1,75 @@
+# Pull requests and pushes: lint, type-check and test everything on GitHub-hosted runners.
+# Nothing here has access to deployment secrets.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main, "candidate-*"]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6-trixie
+        env: { POSTGRES_PASSWORD: ci }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:8.10.2-alpine
+        ports: ["6379:6379"]
+    defaults: { run: { working-directory: backend } }
+    env:
+      ASTRO_TEST_PG: postgresql://postgres:ci@localhost:5432/postgres
+      ASTRO_TEST_REDIS: redis://localhost:6379/5
+      ASTRO_TEST_ROLE_PASSWORD: test
+      PGPASSWORD: ci
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@v7
+        with: { version: "0.11.32", enable-cache: true }
+      - run: uv python install 3.14.9
+      - run: uv sync --extra sky --frozen
+      - run: uv run ruff check src tests migrations
+      - run: uv run ruff format --check src tests migrations
+      - run: uv run mypy
+      - name: Brain, database (RLS), API and worker tests
+        run: uv run pytest -q --cov --cov-report=term-missing:skip-covered
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v5
+        with: { node-version: "26.12.1", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Compose files are valid
+        run: |
+          mkdir -p secrets/runtime && for f in db_superuser_password db_auth_password db_owner_password db_api_password \
+            db_worker_password redis_api_password redis_worker_password jwt_secret deepgram_api_key smtp_password \
+            seed_demo_password cloudflared_token google_client_secret; do echo x > secrets/runtime/$f; done
+          for env in dev staging prod ci; do docker compose -f compose.yaml -f compose.$env.yaml config -q; done

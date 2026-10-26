@@ -1,0 +1,52 @@
+# Development: hot reload, Mailpit catches every email, ports on localhost only.
+services:
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]
+  redis:
+    ports: ["127.0.0.1:6379:6379"]
+  migrate:
+    image: astrovoice/api-dev:local
+  api:
+    image: astrovoice/api-dev:local
+    build: { context: ./backend, target: dev }
+    read_only: false
+    volumes: ["./backend/src:/app/src:ro", "./backend/migrations:/app/migrations:ro"]
+    environment:
+      ASTRO_ENV: development
+  worker:
+    image: astrovoice/api-dev:local
+    command: ["watchfiles", "--filter", "python", "celery -A astro_worker.tasks worker -Q email,waitlist,maintenance,pdf,export --concurrency 1 --loglevel INFO", "/app/src"]
+    volumes: ["./backend/src:/app/src:ro"]
+  beat:
+    image: astrovoice/api-dev:local
+  seed:
+    image: astrovoice/api-dev:local
+    restart: "no"
+    profiles: [seed]
+    depends_on:
+      api: { condition: service_started }
+    command: ["python", "-m", "astro_seed", "--nights", "60"]
+    environment:
+      ASTRO_ENV: development
+      ASTRO_DB_HOST: postgres
+      ASTRO_DB_NAME: astrovoice
+      ASTRO_GOTRUE_URL: http://gotrue:9999
+      ASTRO_JWT_ISSUER: http://localhost:8080/auth/v1
+    secrets: [db_owner_password, jwt_secret, seed_demo_password]
+    networks: [data, edge]
+  web:
+    image: astrovoice/web-dev:local
+    build: { context: ./frontend, target: dev }
+    volumes: ["./frontend/src:/app/src", "./frontend/public:/app/public"]
+    environment:
+      NODE_ENV: development
+  caddy:
+    # Caddy listens on :80 inside the network in every environment, because the web server reaches GoTrue
+    # through http://caddy:80 (INTERNAL_ORIGIN). Only the host port differs.
+    ports: ["127.0.0.1:8080:80"]
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    restart: unless-stopped
+    environment: { MP_SMTP_AUTH_ACCEPT_ANY: "1", MP_SMTP_AUTH_ALLOW_INSECURE: "1" }
+    ports: ["127.0.0.1:8025:8025"]
+    networks: [edge]

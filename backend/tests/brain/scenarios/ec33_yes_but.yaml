@@ -1,0 +1,7 @@
+id: EC-33
+title: Yes, but... changes instead of confirming
+turns:
+  - say: Refractor for Saturn on Friday from 9 to 10 PM
+    expect: {state: CONFIRMING}
+  - say: Yes, but make it the reflector
+    expect: {state: CONFIRMING, draft: {telescope: DSR-100}, reply_contains: ["Deep-Space Reflector"], effects: [release, hold]}

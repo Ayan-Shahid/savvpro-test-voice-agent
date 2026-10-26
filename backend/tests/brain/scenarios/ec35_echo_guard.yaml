@@ -1,0 +1,6 @@
+id: EC-35
+title: The assistant's own words are ignored
+turns:
+  - say: Refractor for Saturn on Friday from 9 to 10 PM
+  - say: That's the Optical Refractor for Saturn, Friday 30 October
+    expect: {intent: ECHO_IGNORED, state: CONFIRMING}

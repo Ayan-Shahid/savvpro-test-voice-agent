@@ -1,0 +1,5 @@
+id: EC-21
+title: Catalogue ids
+turns:
+  - say: M forty two on the reflector
+    expect: {draft: {target: m42, telescope: DSR-100}}

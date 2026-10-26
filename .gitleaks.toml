@@ -1,0 +1,7 @@
+title = "astrovoice"
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Encrypted SOPS files and test-only constants"
+paths = ['''secrets/.*\.enc\.yaml''', '''backend/tests/.*''', '''frontend/src/lib/env\.ts''']

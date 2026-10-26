@@ -1,0 +1,8 @@
+id: EC-23
+title: Low STT confidence is confirmed first
+turns:
+  - say: book jupiter
+    confidence: 0.41
+    expect: {pending: did_you_say, reply_contains: ["Did you say Jupiter"], draft: {target: null}}
+  - say: "Yes"
+    expect: {draft: {target: jupiter}}

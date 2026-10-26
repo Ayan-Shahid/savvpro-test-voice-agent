@@ -1,0 +1,8 @@
+id: EC-53
+title: Hold lapses during a long pause; availability is re-checked
+turns:
+  - say: Refractor for Saturn on Friday from 9 to 10 PM
+    expect: {state: CONFIRMING}
+  - advance_minutes: 3
+    say: "Yes"
+    expect: {state: BOOKED, effects: [hold, commit]}

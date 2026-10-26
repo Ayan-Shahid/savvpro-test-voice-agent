@@ -1,0 +1,7 @@
+id: EC-44
+title: Maintenance block
+setup:
+  busy: [{telescope: OPT-25, night: "2026-11-02", start: "12:00", end: "11:45", kind: maintenance}]
+turns:
+  - say: Refractor for Saturn on 2 November from 9 to 10 PM
+    expect: {state: PROPOSING, check_failed: maintenance, reply_contains: ["maintenance"]}

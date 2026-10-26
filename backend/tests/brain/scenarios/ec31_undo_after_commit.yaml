@@ -1,0 +1,10 @@
+id: EC-31
+title: Undo after commit asks to cancel instead
+turns:
+  - say: Book the Radio Dish for Andromeda tonight from 11 PM to 2 AM
+  - say: "Yes"
+    expect: {state: BOOKED}
+  - say: Undo
+    expect: {state: CANCELLING, pending: cancel_confirm, reply_contains: ["Do you want to cancel it"]}
+  - say: "Yes"
+    expect: {effects: [cancel_booking]}

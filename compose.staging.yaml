@@ -1,0 +1,32 @@
+# Staging: production images, real email via the Resend SMTP relay on ayandev.app, published through a
+# Cloudflare tunnel (no inbound ports). Demo scenarios are re-planted nightly with A = today.
+x-env: &env
+  ASTRO_ENV: staging
+services:
+  api: { environment: *env }
+  worker: { environment: *env }
+  beat: { environment: *env }
+  migrate: { environment: *env }
+  seed:
+    image: ${REGISTRY:-astrovoice}/api:${TAG:-local}
+    restart: "no"
+    profiles: [seed]
+    command: ["python", "-m", "astro_seed", "--nights", "60"]
+    environment:
+      ASTRO_ENV: staging
+      ASTRO_DB_HOST: postgres
+      ASTRO_DB_NAME: astrovoice
+      ASTRO_GOTRUE_URL: http://gotrue:9999
+      ASTRO_JWT_ISSUER: ${PUBLIC_ORIGIN}/auth/v1
+    secrets: [db_owner_password, jwt_secret, seed_demo_password]
+    networks: [data, edge]
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.3
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    depends_on: [caddy]
+    entrypoint: ["sh", "-c", "exec cloudflared tunnel --no-autoupdate --metrics 0.0.0.0:2000 run --token \"$$(cat /run/secrets/cloudflared_token)\""]
+    secrets: [cloudflared_token]
+    networks: [edge]

@@ -1,0 +1,61 @@
+# Deploys run on the self-hosted runner (the Mac mini under Colima) and only for pushes to main in the
+# owner's repository: forks and pull requests can never reach this runner.
+name: deploy
+on:
+  push:
+    branches: [main, "candidate-*"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target
+        type: choice
+        options: [staging, production]
+        default: staging
+permissions:
+  contents: read
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # DEPLOY_OWNER is a repository variable set only in the deploying repo, so this job never runs elsewhere.
+    if: vars.DEPLOY_OWNER != '' && github.repository_owner == vars.DEPLOY_OWNER && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/candidate-'))
+    runs-on: [self-hosted, macOS, astrovoice]
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    timeout-minutes: 30
+    env:
+      ENV_NAME: ${{ github.event.inputs.environment || 'staging' }}
+      TAG: ${{ github.sha }}
+      REGISTRY: astrovoice
+      PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+      SMTP_HOST: smtp.resend.com
+      SMTP_PORT: "587"
+      SMTP_USER: resend
+      SMTP_STARTTLS: "true"
+      MAIL_FROM: AstroVoice <bookings@ayandev.app>
+      MAIL_FROM_ADDRESS: bookings@ayandev.app
+      SOPS_AGE_KEY_FILE: ${{ vars.SOPS_AGE_KEY_FILE }}   # a path on the runner, never the key itself
+      GOOGLE_ENABLED: ${{ vars.GOOGLE_ENABLED || 'false' }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - name: Render secrets for this environment
+        run: scripts/secrets.sh render "$ENV_NAME"
+      - name: Build images
+        run: |
+          docker build -t $REGISTRY/api:$TAG --target prod backend
+          docker build -t $REGISTRY/web:$TAG --target prod frontend
+      - name: Migrate and roll out
+        run: |
+          OVERLAY=compose.$([ "$ENV_NAME" = production ] && echo prod || echo staging).yaml
+          docker compose -f compose.yaml -f $OVERLAY up -d --remove-orphans
+          docker compose -f compose.yaml -f $OVERLAY --profile seed run --rm seed
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS "$PUBLIC_ORIGIN/api/health/ready" && exit 0; sleep 5; done; exit 1
+      - name: Wipe rendered secrets
+        if: always()
+        run: find secrets/runtime -type f -exec shred -u {} + 2>/dev/null || rm -rf secrets/runtime

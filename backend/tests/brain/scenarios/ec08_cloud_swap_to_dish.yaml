@@ -1,0 +1,9 @@
+id: EC-08
+title: Cloud blocks optical, dish offered (brief scenario 2)
+turns:
+  - say: Refractor for Saturn tomorrow at 9 PM
+    expect: {state: PROPOSING, check_failed: cloud, reply_contains: ["85% cloud", "Radio Dish can still observe Saturn", "Thursday"]}
+  - say: The dish, from 9 to 11.
+    expect: {state: CONFIRMING, draft: {telescope: SMM-12, night: "2026-10-28"}, reply_contains: ["9 to 11 PM"]}
+  - say: "Yes."
+    expect: {state: BOOKED}

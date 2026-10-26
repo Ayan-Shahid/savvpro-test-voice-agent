@@ -1,0 +1,72 @@
+# One origin for everything: pages, /api, /ws and /auth/v1. TLS ends at Cloudflare (cloudflared tunnel) in
+# staging/production, so Caddy listens on plain HTTP inside the Docker network only.
+{
+	auto_https off
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers Cf-Connecting-Ip X-Forwarded-For
+	}
+}
+
+:{$CADDY_PORT:80} {
+	encode zstd gzip
+	request_body {
+		max_size 1MB
+	}
+	log {
+		output stdout
+		format json
+	}
+
+	header {
+		-Server
+		-X-Powered-By
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
+	}
+
+	# GoTrue under /auth/v1. Its admin API is never reachable from outside.
+	handle_path /auth/v1/* {
+		@admin path /admin /admin/*
+		respond @admin 404
+		reverse_proxy gotrue:9999 {
+			header_up X-Real-IP {client_ip}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000 {
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# WebSockets: the API checks Origin and a single-use ticket.
+	handle /ws/* {
+		reverse_proxy api:8000 {
+			header_up X-Forwarded-For {client_ip}
+			stream_timeout 35m
+			stream_close_delay 5s
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# If an upstream is down, serve a static page instead of a bare error.
+	handle_errors 502 503 504 {
+		root * /srv/errors
+		rewrite * /{err.status_code}.html
+		file_server
+		header Cache-Control "no-store"
+		header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"
+	}
+}

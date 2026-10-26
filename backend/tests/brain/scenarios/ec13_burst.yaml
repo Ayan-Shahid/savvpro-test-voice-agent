@@ -1,0 +1,7 @@
+id: EC-13
+title: Multi-slot burst (brief scenario 4)
+turns:
+  - say: Book the Radio Dish for Andromeda tonight from 11 PM to 2 AM
+    expect: {state: CONFIRMING, effects: [hold], draft: {target: m31, telescope: SMM-12, night: "2026-10-27"}, reply_contains: ["tonight, Tuesday 27 October, 11 PM to 2 AM"]}
+  - say: "Yes"
+    expect: {state: BOOKED, effects: [commit]}

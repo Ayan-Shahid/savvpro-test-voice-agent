@@ -1,0 +1,7 @@
+id: EC-04
+title: Too close to the Sun
+turns:
+  - say: Point the dish at Venus this afternoon
+    expect: {reply_contains: ["only 8° from the Sun"], state: COLLECTING}
+  - say: Never mind. Point it at the sun instead
+    expect: {intent: FORBIDDEN, reply_contains: ["never safe"]}

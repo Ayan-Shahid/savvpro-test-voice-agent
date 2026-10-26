@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #05060d;
+  --color-ink-900: #0a0c19;
+  --color-ink-800: #12152a;
+  --color-ink-700: #1c2140;
+  --color-mist-100: #eef0ff;
+  --color-mist-300: #c3c8ea;
+  --color-mist-500: #8a90b8;
+  --color-violet-400: #9b86ff;
+  --color-aurora-300: #7fe3d4;
+  --color-danger-50: #2a0d14;
+  --color-danger-300: #ff9aa9;
+  --color-danger-500: #ff5c76;
+  --color-ok-300: #8ff0b6;
+  --color-warn-300: #ffd38a;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius-glass: 1.25rem;
+}
+
+:root {
+  color-scheme: dark;
+  --glass-bg: rgb(18 21 42 / 0.55);
+  --glass-border: rgb(195 200 234 / 0.14);
+}
+
+html { background: var(--color-ink-950); }
+body { color: var(--color-mist-100); } /* no body background: the fixed galaxy canvas sits at z -10 */
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+::selection { background: rgb(155 134 255 / 0.4); }
+
+:focus-visible { outline: 2px solid var(--color-aurora-300); outline-offset: 3px; border-radius: 6px; }
+
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-glass);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Primary button: a baked PNG mesh gradient with grain. No CSS gradients, no shaders, no 3D. */
+.btn-primary {
+  background-color: #6f5cf0;
+  background-image: url("/textures/mesh-primary.png");
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.25);
+}
+.btn-primary:hover:not(:disabled) { background-image: url("/textures/mesh-primary-hover.png"); }
+.btn-primary:disabled { filter: grayscale(0.6) brightness(0.8); cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after {
+  animation-duration: 0.01ms !important; transition-duration: 0.01ms !important;
+}
+html[data-contrast="high"] { --glass-bg: rgb(5 6 13 / 0.92); --glass-border: rgb(238 240 255 / 0.6); }

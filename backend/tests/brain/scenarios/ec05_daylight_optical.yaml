@@ -1,0 +1,5 @@
+id: EC-05
+title: Optical in daylight
+turns:
+  - say: Saturn on the refractor on Friday at 3 PM
+    expect: {state: PROPOSING, reply_contains: ["6:15 to 10:15 PM Friday night"]}

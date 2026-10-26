@@ -1,0 +1,9 @@
+id: EC-49
+title: Cancel an existing booking by voice
+setup:
+  own: [{id: mine-fri, telescope: SMM-12, target: cyg-a, night: "2026-10-30", start: "19:00", end: "20:00"}]
+turns:
+  - say: Cancel my Friday booking
+    expect: {intent: CANCEL_BOOKING, pending: cancel_confirm, reply_contains: ["Cygnus A"]}
+  - say: "Yes"
+    expect: {effects: [cancel_booking]}

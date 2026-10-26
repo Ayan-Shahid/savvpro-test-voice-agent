@@ -1,0 +1,5 @@
+id: EC-48
+title: Too far ahead
+turns:
+  - say: Refractor for Saturn on 15 January
+    expect: {reply_contains: ["30 nights ahead"], draft: {night: null}}

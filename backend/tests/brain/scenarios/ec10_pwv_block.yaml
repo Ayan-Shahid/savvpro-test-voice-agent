@@ -1,0 +1,5 @@
+id: EC-10
+title: Water vapour blocks the dish on the seeded wet night
+turns:
+  - say: Radio dish for Cygnus A on Sunday from 7 to 8 PM
+    expect: {state: PROPOSING, check_failed: pwv, reply_contains: ["water vapour"]}

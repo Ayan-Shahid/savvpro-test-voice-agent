@@ -1,0 +1,9 @@
+id: EC-19
+title: Mis-heard targets
+turns:
+  - say: Book cassie a on the dish tonight
+    expect: {state: CLARIFYING, pending: did_you_mean_target, reply_contains: ["Cassiopeia A"]}
+  - say: "Yes"
+    expect: {draft: {target: cas-a}}
+  - say: Actually make it beetle juice on the refractor
+    expect: {draft: {target: betelgeuse, telescope: OPT-25}}

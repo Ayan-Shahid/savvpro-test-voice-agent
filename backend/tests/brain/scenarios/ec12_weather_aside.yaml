@@ -1,0 +1,7 @@
+id: EC-12
+title: Weather question mid-flow leaves slots alone
+turns:
+  - say: I'd like the reflector for the Andromeda Galaxy
+    expect: {pending: slot}
+  - say: Wait, what's the weather Friday?
+    expect: {intent: CHECK_WEATHER, reply_contains: ["Friday night looks"], draft: {target: m31, telescope: DSR-100, night: null}}

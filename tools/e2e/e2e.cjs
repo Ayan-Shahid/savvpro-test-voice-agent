@@ -1,0 +1,35 @@
+const { chromium } = require('playwright');
+const dir = process.argv[2]; const B = process.env.BASE_URL || 'http://localhost:8080';
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const ctx = await b.newContext({ viewport: { width: 1400, height: 900 } });
+  const p = await ctx.newPage(); const errs = [];
+  p.on('pageerror', e => errs.push('pageerror ' + e)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+  await p.goto(B + '/app'); console.log('redirected to', new URL(p.url()).pathname + new URL(p.url()).search);
+  await p.fill('input[name=email]', 'demo@astro.example'); await p.fill('input[name=password]', 'wrong-password-x');
+  await p.click('button[type=submit]'); await p.waitForTimeout(1500); await p.screenshot({ path: dir + '/e2e-badlogin.png' });
+  await p.fill('input[name=password]', 'demo-password-123'); await p.click('button[type=submit]');
+  await p.waitForURL('**/app', { timeout: 15000 }); await p.waitForTimeout(1500);
+  await p.click('text=Start text call'); await p.waitForTimeout(2500);
+  const say = async (t) => { await p.fill('#say', t); await p.click('button:has-text("Send")'); await p.waitForTimeout(2500); };
+  await say('Book the refractor for Saturn on Wednesday from 8 to 10 PM');
+  await p.screenshot({ path: dir + '/e2e-call-confirm.png' });
+  await say('Actually make it the reflector instead');
+  await say('Undo that');
+  await say('Yes');
+  await p.screenshot({ path: dir + '/e2e-call-booked.png' });
+  const bubbles = await p.$$eval('ol[aria-live] li', els => els.map(e => e.innerText));
+  console.log(bubbles.join('\n---\n'));
+  await p.goto(B + '/app/bookings'); await p.waitForTimeout(2000); await p.screenshot({ path: dir + '/e2e-bookings.png' });
+  await p.goto(B + '/app/settings'); await p.waitForTimeout(2000); await p.screenshot({ path: dir + '/e2e-settings.png', fullPage: true });
+  // Isolation: second tab signs in as another user; the first tab must not keep showing the demo user's data.
+  const p2 = await ctx.newPage();
+  await p.goto(B + '/app/bookings'); await p.waitForTimeout(1500);
+  await p2.goto(B + '/sign-in');
+  console.log('p2 at', new URL(p2.url()).pathname);
+  await ctx.clearCookies(); await p2.goto(B + '/sign-in');
+  await p2.fill('input[name=email]', 'juno.tarr@astro.example');
+  console.log('isolation test needs juno password; skipped sign-in');
+  console.log('ERRORS', JSON.stringify(errs.slice(0, 6)));
+  await b.close();
+})();

@@ -1,0 +1,10 @@
+id: EC-36
+title: Silence ladder ends the call and releases holds
+turns:
+  - say: Refractor for Saturn on Friday from 9 to 10 PM
+  - event: silence
+    expect: {reply_contains: ["still there"]}
+  - event: silence
+    expect: {reply_contains: ["something like"]}
+  - event: silence
+    expect: {state: ENDED, effects: [release, end_call]}

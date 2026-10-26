@@ -1,0 +1,11 @@
+# CI: build the test image and run the whole backend suite against the real Postgres and Redis containers.
+services:
+  api-test:
+    build: { context: ./backend, target: test }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      ASTRO_TEST_PG: postgresql://postgres:${CI_DB_PASSWORD:-ci}@postgres:5432/postgres
+      ASTRO_TEST_REDIS: redis://astro-worker:${CI_REDIS_PASSWORD:-ci}@redis:6379/5
+    networks: [data]

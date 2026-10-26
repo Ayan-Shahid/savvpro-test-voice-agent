@@ -1,0 +1,5 @@
+id: EC-03
+title: Never visible from the site
+turns:
+  - say: The Large Magellanic Cloud on the reflector next Monday
+    expect: {state: COLLECTING, check_failed: never_rises, reply_contains: ["never rises at our latitude"], pending: slot}

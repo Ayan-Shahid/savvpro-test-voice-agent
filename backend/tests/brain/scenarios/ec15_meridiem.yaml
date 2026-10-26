@@ -1,0 +1,7 @@
+id: EC-15
+title: am or pm unclear for the dish
+turns:
+  - say: Dish for Cygnus A tomorrow from 9 to 11
+    expect: {state: CLARIFYING, pending: meridiem, reply_contains: ["morning or the evening"]}
+  - say: In the evening
+    expect: {state: CONFIRMING, reply_contains: ["9 to 11 PM"]}

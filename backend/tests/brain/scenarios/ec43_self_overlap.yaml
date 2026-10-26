@@ -1,0 +1,7 @@
+id: EC-43
+title: Caller already booked elsewhere at that time
+setup:
+  own: [{id: mine-1, telescope: SMM-12, target: m31, night: "2026-10-27", start: "22:00", end: "23:00"}]
+turns:
+  - say: Refractor for Saturn tonight from 10 to 11 PM
+    expect: {state: PROPOSING, check_failed: self_overlap, reply_contains: ["two telescopes at once"]}

@@ -1,0 +1,8 @@
+id: EC-46
+title: Length limits and grid rounding
+turns:
+  - say: Reflector for the Andromeda Galaxy on Friday from 7 PM for 6 hours
+    expect: {state: PROPOSING, check_failed: too_long, reply_contains: ["at most 4 hours"]}
+  - say: Start over
+  - say: Refractor for Saturn on Friday at 10:40 PM until 11:30 PM
+    expect: {reply_contains: ["rounded that to 10:45 PM"]}

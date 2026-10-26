@@ -1,0 +1,5 @@
+id: EC-37
+title: Out of scope
+turns:
+  - say: Can you book me a table for two?
+    expect: {intent: OUT_OF_SCOPE, reply_contains: ["only book telescope time"]}

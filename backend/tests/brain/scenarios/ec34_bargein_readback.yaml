@@ -1,0 +1,9 @@
+id: EC-34
+title: Barge-in during read-back
+turns:
+  - say: Refractor for Saturn on Friday from 9 to 10 PM
+  - say: "Yes"
+    heard_full: false
+    expect: {state: CONFIRMING, reply_contains: ["Just to be sure"], effects: []}
+  - say: "Yes"
+    expect: {state: BOOKED}

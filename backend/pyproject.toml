@@ -1,0 +1,79 @@
+[project]
+name = "astrovoice"
+version = "0.1.0"
+description = "AstroVoice: deterministic voice booking for university telescopes"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "fastapi==0.162.0",
+  "uvicorn[standard]==0.54.0",
+  "pydantic==2.14.1",
+  "pydantic-settings==2.16.1",
+  "sqlalchemy[asyncio]==2.1.6",
+  "asyncpg==0.32.0",
+  "alembic==1.20.1",
+  "redis[hiredis]==6.4.0",
+  "celery[redis]==5.6.3",
+  "httpx==0.28.1",
+  "websockets==17.3",
+  "pyjwt[crypto]==2.15.1",
+  "rapidfuzz==3.14.6",
+  "structlog==26.1.0",
+  "orjson==3.13.0",
+  "tzdata==2026.5",
+]
+
+[project.optional-dependencies]
+sky = ["skyfield==1.55", "skyfield-data==7.0.0", "numpy==2.5.4"]
+pdf = ["weasyprint==70.0"]
+
+[dependency-groups]
+dev = [
+  "ruff==0.17.2",
+  "mypy==2.4.0",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.1",
+  "pytest-cov==7.1.0",
+  "hypothesis==6.170.11",
+  "fakeredis==2.40.0",
+  "pyyaml>=6.0.3",
+  "types-pyyaml",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/astro_brain", "src/astro_sky", "src/astro_api", "src/astro_worker", "src/astro_seed"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "ASYNC"]
+ignore = ["S101", "RUF001", "RUF002", "RUF003", "E501"]  # the formatter owns line length; long SQL strings stay readable
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B011", "E501", "SIM117"]
+"src/astro_api/routes/**" = ["S608"]  # SQL fragments interpolated there are module constants, never input
+"migrations/**" = ["E501", "S608"]  # DDL built from constant table names
+
+[tool.mypy]
+python_version = "3.14"
+mypy_path = "src"
+packages = ["astro_brain"]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-q"
+markers = ["db: needs Postgres", "redis: needs Redis"]
+
+[tool.coverage.run]
+source = ["astro_brain"]
+branch = true

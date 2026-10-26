@@ -1,0 +1,5 @@
+id: EC-25
+title: Negation picks the other optical telescope
+turns:
+  - say: Saturn tonight, not the refractor, the other optical one
+    expect: {draft: {telescope: DSR-100}}

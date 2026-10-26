@@ -1,0 +1,9 @@
+id: EC-01
+title: Target below the horizon (brief scenario 1, corrected to Jupiter)
+turns:
+  - say: Book the refractor for Jupiter tonight at 9 PM
+    expect: {state: PROPOSING, check_failed: below_horizon, reply_contains: ["below the horizon at 9 PM", "2:30 to 5:15 AM tonight"], draft: {target: jupiter, telescope: OPT-25}}
+  - say: Yes, that's fine.
+    expect: {state: CONFIRMING, effects: [hold], reply_contains: ["early Wednesday 28 October, 2:30 to 5:15 AM"]}
+  - say: "Yes."
+    expect: {state: BOOKED, effects: [commit]}

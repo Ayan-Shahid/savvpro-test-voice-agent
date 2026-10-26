@@ -1,0 +1,8 @@
+id: EC-38
+title: Start over keeps history
+turns:
+  - say: Reflector for Saturn on Friday
+  - say: Start over
+    expect: {draft: {target: null}}
+  - say: Undo
+    expect: {draft: {target: saturn}}

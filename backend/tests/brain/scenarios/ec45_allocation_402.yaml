@@ -1,0 +1,7 @@
+id: EC-45
+title: Allocation exhausted
+setup:
+  user: {grade: C, remaining_minutes: 30}
+turns:
+  - say: Refractor for Saturn on Friday from 9 to 11 PM
+    expect: {state: PROPOSING, check_failed: allocation_exhausted, reply_contains: ["30 minutes", "9 to 9:30 PM"]}

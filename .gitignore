@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+dist/
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+# Secrets: only *.enc.* files (SOPS) are committed
+.env
+.env.*
+!.env.example
+*.age
+keys.txt
+secrets/*.dec.*
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+# Runtime
+backend/var/
+*.log
+secrets/runtime/
+!secrets/*.enc.yaml

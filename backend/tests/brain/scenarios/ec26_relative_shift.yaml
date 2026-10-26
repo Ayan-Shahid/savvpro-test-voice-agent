@@ -1,0 +1,7 @@
+id: EC-26
+title: Relative edit moves the window
+turns:
+  - say: Reflector for Saturn tonight from 10 to 11 PM
+    expect: {state: CONFIRMING}
+  - say: Make it an hour later
+    expect: {state: CONFIRMING, reply_contains: ["11 PM to midnight"]}

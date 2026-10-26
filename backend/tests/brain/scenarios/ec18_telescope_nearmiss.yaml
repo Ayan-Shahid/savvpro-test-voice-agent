@@ -1,0 +1,7 @@
+id: EC-18
+title: Telescope near-miss is asked, never guessed
+turns:
+  - say: Book the refactor for Saturn tonight
+    expect: {state: CLARIFYING, pending: which_telescope, reply_contains: ["Optical Refractor", "Deep-Space Reflector"], draft: {telescope: null}}
+  - say: The first one
+    expect: {draft: {telescope: OPT-25}}

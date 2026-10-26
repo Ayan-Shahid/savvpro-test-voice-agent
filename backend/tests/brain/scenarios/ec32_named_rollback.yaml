@@ -1,0 +1,9 @@
+id: EC-32
+title: Named rollback
+turns:
+  - say: Reflector for the Andromeda Galaxy on Friday
+  - say: Switch to Saturn
+    expect: {draft: {target: saturn}}
+  - say: Make it the refractor
+  - say: Go back to the Andromeda one
+    expect: {draft: {target: m31, telescope: DSR-100}}

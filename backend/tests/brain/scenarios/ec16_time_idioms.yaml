@@ -1,0 +1,5 @@
+id: EC-16
+title: Words and idioms for times
+turns:
+  - say: Saturn on the refractor tonight from half past ten till quarter to one
+    expect: {state: CONFIRMING, reply_contains: ["10:30 PM to 12:45 AM"]}
